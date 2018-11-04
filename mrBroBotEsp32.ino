@@ -1,6 +1,8 @@
 #define LOG_INPUT false
 #define LOG_OUTPUT false
-#define PID_LOG true
+#define LOG_DMP false
+#define LOG_LOOP false
+#define PID_LOG false
 
 #include "PID_v1.h"
 #include "LMotorController.h"
@@ -8,7 +10,7 @@
 #include "MPU6050_6Axis_MotionApps20.h"
 
 #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
-    #include "Wire.h"
+#include "Wire.h"
 #endif
 
 #define MIN_ABS_SPEED 1
@@ -21,7 +23,7 @@ uint8_t mpuIntStatus;   // holds actual interrupt status byte from MPU
 uint8_t devStatus;      // return status after each device operation (0 = success, !0 = error)
 uint16_t packetSize;    // expected DMP packet size (default is 42 bytes)
 uint16_t fifoCount;     // count of all bytes currently in FIFO
-uint8_t fifoBuffer[64]; // FIFO storage buffer
+uint8_t fifoBuffer[1300]; // FIFO storage buffer
 
 // orientation/motion vars
 Quaternion q;           // [w, x, y, z]         quaternion container
@@ -55,15 +57,15 @@ double motorSpeedFactorRight = 1;
 // nc
 // D8
 
-int INTERRUPT_PIN = 15;
+int INTERRUPT_PIN = 27;
 
 //MOTOR CONTROLLER
-int ENA = 2;  //D4
-int IN1 = 14; //D5
-int IN2 = 12; //D6 
-int IN3 = 13; //D7
-int IN4 = 16; //D0
-int ENB = 3;  //RX
+int ENA = 4;  //D4
+int IN1 = 12; //D5
+int IN2 = 14; //D6 
+int IN3 = 32; //D7
+int IN4 = 33; //D0
+int ENB = 17;  //RX
 
 LMotorController motorController(ENA, IN1, IN2, ENB, IN3, IN4, motorSpeedFactorLeft, motorSpeedFactorRight);
 
@@ -80,10 +82,11 @@ void dmpDataReady()
 
 void setup()
 {
+  delay(3000);
     // join I2C bus (I2Cdev library doesn't do this automatically)
     #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
         Wire.begin();
-//        Wire.setClock(400000); // 400kHz I2C clock. Comment this line if having compilation difficulties
+        Wire.setClock(400000); // 400kHz I2C clock. Comment this line if having compilation difficulties
     #elif I2CDEV_IMPLEMENTATION == I2CDEV_BUILTIN_FASTWIRE
         Fastwire::setup(400, true);
     #endif
@@ -135,7 +138,7 @@ void setup()
         
         //setup PID
 
-        analogWriteRange(255);
+       // analogWriteRange(255);
         pid.SetMode(AUTOMATIC);
         pid.SetSampleTime(10);
         pid.SetOutputLimits(-255, 255);  
@@ -155,8 +158,23 @@ void setup()
 
 void loop()
 {
+      #if LOG_LOOP
+      Serial.print(F("."));
+      #endif
+
     // if programming failed, don't try to do anything
     if (!dmpReady) return;
+
+        #if LOG_DMP
+        Serial.println(">");
+        Serial.print(F("DMPREADY "));
+        Serial.print(F("fc: "));
+        Serial.print(fifoCount);
+        Serial.print(F(" ps: "));
+        Serial.print(packetSize);
+        Serial.print(F(" mi: "));
+        Serial.println(mpuInterrupt);
+        #endif
 
     // wait for MPU interrupt or extra packet(s) available
     while (!mpuInterrupt && fifoCount < packetSize)
@@ -184,6 +202,7 @@ void loop()
         // reset so we can continue cleanly
         mpu.resetFIFO();
         Serial.println(F("FIFO overflow!"));
+        fifoCount = 0;
 
     // otherwise, check for DMP data ready interrupt (this should happen frequently)
     }
@@ -217,6 +236,3 @@ void loop()
         #endif
    }
 }
-
-
-

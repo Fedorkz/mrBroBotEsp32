@@ -1,26 +1,32 @@
 #include "LMotorController.h"
 #include "Arduino.h"
-
+#include "esp32-hal-ledc.h"
 
 LMotorController::LMotorController(int ena, int in1, int in2, int enb, int in3, int in4, double motorAConst, double motorBConst)
 {
     _motorAConst = motorAConst;
     _motorBConst = motorBConst;
     
-	_ena = ena;
-	_in1 = in1;
-	_in2 = in2;
-	_enb = enb;
-	_in3 = in3;
-	_in4 = in4;
-	
-	pinMode(_ena, OUTPUT);
-	pinMode(_in1, OUTPUT);
-	pinMode(_in2, OUTPUT);
+  _ena = ena;
+  _in1 = in1;
+  _in2 = in2;
+  _enb = enb;
+  _in3 = in3;
+  _in4 = in4;
+  
+  pinMode(_ena, OUTPUT);
+  pinMode(_in1, OUTPUT);
+  pinMode(_in2, OUTPUT);
     
-	pinMode(_enb, OUTPUT);
-	pinMode(_in3, OUTPUT);
-	pinMode(_in4, OUTPUT);
+  pinMode(_enb, OUTPUT);
+  pinMode(_in3, OUTPUT);
+  pinMode(_in4, OUTPUT);
+
+  ledcSetup(ENA_PWM, 50, 8);
+  ledcSetup(ENB_PWM, 50, 8);
+
+  ledcAttachPin(_ena, ENA_PWM);
+  ledcAttachPin(_enb, ENB_PWM);
 }
 
 
@@ -56,8 +62,8 @@ void LMotorController::move(int leftSpeed, int rightSpeed, int minAbsSpeed)
     digitalWrite(_in4, rightSpeed > 0 ? LOW : HIGH);
     digitalWrite(_in1, leftSpeed > 0 ? HIGH : LOW);
     digitalWrite(_in2, leftSpeed > 0 ? LOW : HIGH);
-    analogWrite(_ena, realRightSpeed * _motorAConst);
-    analogWrite(_enb, realLeftSpeed * _motorBConst);
+    setEna(realRightSpeed * _motorAConst);
+    setEnb(realLeftSpeed * _motorBConst);
 }
 
 
@@ -86,8 +92,8 @@ void LMotorController::move(int speed, int minAbsSpeed)
     digitalWrite(_in2, speed > 0 ? LOW : HIGH);
     digitalWrite(_in3, speed > 0 ? HIGH : LOW);
     digitalWrite(_in4, speed > 0 ? LOW : HIGH);
-    analogWrite(_ena, realSpeed * _motorAConst);
-    analogWrite(_enb, realSpeed * _motorBConst);
+    setEna(realSpeed * _motorAConst);
+    setEnb(realSpeed * _motorBConst);
     
     _currentSpeed = direction * realSpeed;
 }
@@ -104,8 +110,8 @@ void LMotorController::move(int speed)
     digitalWrite(_in2, speed > 0 ? LOW : HIGH);
     digitalWrite(_in3, speed > 0 ? HIGH : LOW);
     digitalWrite(_in4, speed > 0 ? LOW : HIGH);
-    analogWrite(_ena, abs(speed) * _motorAConst);
-    analogWrite(_enb, abs(speed) * _motorBConst);
+    setEna(abs(speed) * _motorAConst);
+    setEnb(abs(speed) * _motorBConst);
     
     _currentSpeed = speed;
 }
@@ -120,14 +126,14 @@ void LMotorController::turnLeft(int speed, bool kick)
     
     if (kick)
     {
-        analogWrite(_ena, 255);
-        analogWrite(_enb, 255);
+        setEna(255);
+        setEnb(255);
     
         delay(100);
     }
     
-    analogWrite(_ena, speed * _motorAConst);
-    analogWrite(_enb, speed * _motorBConst);
+    setEna(speed * _motorAConst);
+    setEnb(speed * _motorBConst);
 }
 
 
@@ -140,14 +146,14 @@ void LMotorController::turnRight(int speed, bool kick)
  
     if (kick)
     {
-        analogWrite(_ena, 255);
-        analogWrite(_enb, 255);
+        setEna(255);
+        setEnb(255);
     
         delay(100);
     }
     
-    analogWrite(_ena, speed * _motorAConst);
-    analogWrite(_enb, speed * _motorBConst);
+    setEna(speed * _motorAConst);
+    setEnb(speed * _motorBConst);
 }
 
 
@@ -161,4 +167,14 @@ void LMotorController::stopMoving()
     digitalWrite(_enb, HIGH);
     
     _currentSpeed = 0;
+}
+
+void LMotorController::setEna(int value)
+{
+    ledcWrite(ENA_PWM, value);
+}
+
+void LMotorController::setEnb(int value)
+{
+    ledcWrite(ENB_PWM, value);
 }
